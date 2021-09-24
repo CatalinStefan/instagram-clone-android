@@ -3,9 +3,15 @@ package com.catalin.instagramclone
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import com.catalin.instagramclone.api.*
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+import java.io.InputStream
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 class MainViewModel: ViewModel() {
 
@@ -27,7 +33,12 @@ class MainViewModel: ViewModel() {
             .enqueue(object : Callback<List<Post>> {
                 override fun onResponse(call: Call<List<Post>>, response: Response<List<Post>>) {
                     if (response.isSuccessful) {
-                        val list = response.body()
+                        val list = response.body()?.sortedByDescending { post ->
+                            val split = post.timestamp.split(".")
+                            val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
+                            val date = LocalDateTime.parse(split[0], formatter)
+                            date
+                        }
                         posts.value = list ?: listOf()
                     } else {
                         message.value = response.message()
@@ -84,6 +95,107 @@ class MainViewModel: ViewModel() {
                 }
 
                 override fun onFailure(call: Call<UserSignupResponse>, t: Throwable) {
+                    handleError(t)
+                }
+
+            })
+    }
+
+    fun onPostUpload(inputStream: InputStream, caption: String) {
+        val requestBody = RequestBody.create("image/*".toMediaTypeOrNull(), inputStream.readBytes())
+        val part = MultipartBody.Part.createFormData("image", "name.jpg", requestBody)
+        InstagramApiService.api
+            .uploadImage(part, accessToken)
+            .enqueue(object : Callback<ImageUploadResponse> {
+                override fun onResponse(
+                    call: Call<ImageUploadResponse>,
+                    response: Response<ImageUploadResponse>
+                ) {
+                    val imageUrl = response.body()?.filename
+                    if (response.isSuccessful && !imageUrl.isNullOrEmpty()) {
+                        finishPostUpload(imageUrl, caption)
+                    } else {
+                        message.value = "Something went wrong"
+                    }
+                }
+
+                override fun onFailure(call: Call<ImageUploadResponse>, t: Throwable) {
+                    handleError(t)
+                }
+
+            })
+    }
+
+    private fun finishPostUpload(imageUrl: String, caption: String) {
+        if (currentUserId == null) {
+            message.value = "Something went wrong"
+            return
+        }
+        val createPost = CreatePost(imageUrl, "relative", caption, currentUserId!!)
+        InstagramApiService.api
+            .createPost(createPost, accessToken)
+            .enqueue(object : Callback<CreatePostResponse> {
+                override fun onResponse(
+                    call: Call<CreatePostResponse>,
+                    response: Response<CreatePostResponse>
+                ) {
+                    if (response.isSuccessful) {
+                        message.value = "Post created successfully"
+                        getAllPosts()
+                    } else {
+                        message.value = "Something went wrong"
+                    }
+                }
+
+                override fun onFailure(call: Call<CreatePostResponse>, t: Throwable) {
+                    handleError(t)
+                }
+
+            })
+    }
+
+    fun onDeletePost(postId: Int) {
+        InstagramApiService.api
+            .deletePost(postId, accessToken)
+            .enqueue(object : Callback<String> {
+                override fun onResponse(call: Call<String>, response: Response<String>) {
+                    if (response.isSuccessful) {
+                        message.value = "Post deleted"
+                        getAllPosts()
+                    } else {
+                        message.value = "Post cannot be deleted"
+                    }
+                }
+
+                override fun onFailure(call: Call<String>, t: Throwable) {
+                    handleError(t)
+                }
+
+            })
+    }
+
+    fun postComment(text: String, postId: Int) {
+        if (currentUsername.isNullOrEmpty()) {
+            message.value = "Something went wrong"
+            return
+        }
+        val createComment = CreateComment(currentUsername!!, text, postId)
+        InstagramApiService.api
+            .createComment(createComment, accessToken)
+            .enqueue(object : Callback<CreateCommentResponse> {
+                override fun onResponse(
+                    call: Call<CreateCommentResponse>,
+                    response: Response<CreateCommentResponse>
+                ) {
+                    if (response.isSuccessful) {
+                        message.value = "Comment created"
+                        getAllPosts()
+                    } else {
+                        message.value = "Cannot create comment"
+                    }
+                }
+
+                override fun onFailure(call: Call<CreateCommentResponse>, t: Throwable) {
                     handleError(t)
                 }
 

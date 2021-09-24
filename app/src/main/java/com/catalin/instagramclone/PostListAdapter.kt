@@ -11,7 +11,7 @@ import com.catalin.instagramclone.api.InstagramApiService.BASE_URL
 import com.catalin.instagramclone.api.Post
 import com.catalin.instagramclone.databinding.ItemPostBinding
 
-class PostListAdapter(private var posts: List<Post>): RecyclerView.Adapter<PostListAdapter.PostViewHolder>() {
+class PostListAdapter(private var posts: List<Post>, val postCallback: PostCallback): RecyclerView.Adapter<PostListAdapter.PostViewHolder>() {
 
     private var loggedIn: Boolean = false
 
@@ -27,7 +27,7 @@ class PostListAdapter(private var posts: List<Post>): RecyclerView.Adapter<PostL
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PostViewHolder {
         val binding = ItemPostBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return PostViewHolder(binding)
+        return PostViewHolder(binding, postCallback)
     }
 
     override fun onBindViewHolder(holder: PostViewHolder, position: Int) {
@@ -36,7 +36,7 @@ class PostListAdapter(private var posts: List<Post>): RecyclerView.Adapter<PostL
 
     override fun getItemCount() = posts.size
 
-    class PostViewHolder(val binding: ItemPostBinding): RecyclerView.ViewHolder(binding.root) {
+    class PostViewHolder(val binding: ItemPostBinding, val postCallback: PostCallback): RecyclerView.ViewHolder(binding.root) {
         fun bind(post: Post, loggedIn: Boolean) {
             binding.postUsername.text = post.user.username
             binding.captionUsername.text = post.user.username + ":"
@@ -64,8 +64,16 @@ class PostListAdapter(private var posts: List<Post>): RecyclerView.Adapter<PostL
             }
 
             binding.deleteButton.visibility = if (loggedIn) View.VISIBLE else View.INVISIBLE
-            binding.newCommentLayout.visibility = if (loggedIn) View.VISIBLE else View.GONE
+            binding.deleteButton.setOnClickListener { postCallback.onDeletePost(post.id) }
 
+            binding.newCommentLayout.visibility = if (loggedIn) View.VISIBLE else View.GONE
+            binding.commentPost.setOnClickListener {
+                val text = binding.commentText.text.toString()
+                if (!text.isNullOrEmpty()) {
+                    postCallback.onComment(text, post.id)
+                }
+                binding.commentText.setText("")
+            }
         }
     }
 

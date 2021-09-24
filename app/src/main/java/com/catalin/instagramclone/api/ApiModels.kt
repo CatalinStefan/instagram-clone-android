@@ -39,3 +39,37 @@ data class UserSignupResponse(
     val username: String,
     val email: String
 )
+
+data class ImageUploadResponse(
+    val filename: String
+)
+
+data class CreatePost(
+    @SerializedName("image_url") val imageUrl: String,
+    @SerializedName("image_url_type") val imageUrlType: String,
+    val caption: String,
+    @SerializedName("creator_id") val creatorId: Int
+)
+
+data class CreatePostResponse(
+    @SerializedName("image_url") val imageUrl: String,
+    @SerializedName("image_url_type") val imageUrlType: String,
+    val caption: String,
+    @SerializedName("user_id") val userId: Int,
+    val timestamp: String,
+    val id: Int
+)
+
+data class CreateComment(
+    val username: String,
+    val text: String,
+    @SerializedName("post_id") val postId: Int
+)
+
+data class CreateCommentResponse(
+    val id: Int,
+    val username: String,
+    val text: String,
+    @SerializedName("post_id") val postId: Int,
+    val timestamp: String
+)
